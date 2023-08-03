@@ -108,9 +108,9 @@ if __name__ == '__main__':
         yaw_rate = gyro.getValues()[2]
         altitude = gps.getValues()[2]
         x_global = gps.getValues()[0]
-        v_x_global = (x_global - past_x_global)/dt
+        v_x_global = (x_global != past_x_global)*(x_global - past_x_global)/dt
         y_global = gps.getValues()[1]
-        v_y_global = (y_global - past_y_global)/dt
+        v_y_global = (x_global != past_x_global)*(y_global - past_y_global)/dt
 
         ## Get body fixed velocities
         cosyaw = cos(yaw)
