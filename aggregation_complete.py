@@ -28,7 +28,7 @@ def calculate_control_forces(pos, a, b, c, mode, drone_radius):
                     u[i] -= y_d * (a/y_norm - b/(y_norm**2))
 
                 elif mode == 4:
-                    u[i] -= y_d * (a - b/(((y_norm**2) - 4*drone_radius**2)**2))
+                    u[i] -= y_d * (a/y_norm - b/(((y_norm**2) - 4*drone_radius**2)**2))
 
                 else:
                     break
@@ -133,6 +133,8 @@ def control_loop(pos, mode, coeff_vec, threshold_distance, drone_radius, Title):
     iteration = 0
     centroid_dist = []
     collisions = 0
+    sampling_time = 0.001
+
 
     while True:
         start_time = time.time()
@@ -182,7 +184,11 @@ def control_loop(pos, mode, coeff_vec, threshold_distance, drone_radius, Title):
             print("COLLISIONS =  ",collisions)
             print("DISTANCE IS ",threshold_distance)
             break
-    
+
+        prev_pos = pos
+        pos = update_positions(pos, control_forces, sampling_time)
+
+
     # Compute the sphere's center
     sphere_center = np.mean(pos, axis=0)
 
@@ -240,7 +246,7 @@ def FiniteBodySize(pos, threshold_distance, drone_radius):
     else:
         epsillon = threshold_distance/n_drones
 
-        a = 0.1
+        a = 0.2
         b = a * (2*threshold_distance**2)/n_drones
 
         control_loop(pos, mode, [a, b, 0], threshold_distance, drone_radius, 'Rigid Body Case')
