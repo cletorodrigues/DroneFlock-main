@@ -33,6 +33,28 @@ from pid_controller import pid_velocity_fixed_height_controller
 
 FLYING_ATTITUDE = 1
 
+
+
+def send_message(my_id, message):
+    message_to_send = f"{my_id}:{message}"
+    emitter.send(message_to_send.encode('utf-8'))
+
+def receive_message():
+    received_message = receiver.getString()
+    sender_name, message_content = received_message.split(":")
+
+    sender_id = int(sender_name)
+            
+    # Removing parenthesis and splitting the string into list
+    message_content = message_content.strip('()').split(',')
+
+    # Converting each element in the list to float
+    message_content = [float(i) for i in message_content]
+
+    return sender_id, message_content
+
+
+
 if __name__ == '__main__':
 
     robot = Robot()
@@ -103,6 +125,10 @@ if __name__ == '__main__':
     my_id = int(robot.getName())
     input_read = 0
 
+    #define the goal distance
+    threshold_distance = 3
+    equi_dist = 2
+
     # Main loop:
     while robot.step(timestep) != -1:
         input_read = 0 
@@ -111,7 +137,7 @@ if __name__ == '__main__':
         actual_state = {}
     
         
-        print(dt)
+        #print(dt)
 
         ## Get sensor data
         roll = imu.getRollPitchYaw()[0]
@@ -141,35 +167,21 @@ if __name__ == '__main__':
         height_desired += height_diff_desired * dt
 
         pos[my_id] = x_global, y_global, altitude
-
         message = x_global, y_global, altitude
-        message_to_send = f"{my_id}:{message}"
-        emitter.send(message_to_send.encode('utf-8'))
+        send_message(my_id, message)
 
         
         while receiver.getQueueLength() > 0 or input_read == 0:
-            received_message = receiver.getString()
-            sender_name, message_content = received_message.split(":")
-
-            sender_id = int(sender_name)
+            sender_id, message_content = receive_message()
             
-            # Removing parenthesis and splitting the string into list
-            message_content = message_content.strip('()').split(',')
-
-            # Converting each element in the list to float
-            message_content = [float(i) for i in message_content]
-
             pos[sender_id] = message_content
             receiver.nextPacket() # move to the next message in the queue
 
-            if sender_id == 8:
+            if sender_id == 7:
                 input_read = 1
                 
+
         
-            #print("SENDER: ", sender_name, "MESSAGE = " , message)
-        
-        print(pos, "\n")
-        print("TIMESTAMP = ", robot.getTime())
 
 
         ## Example how to get sensor data
