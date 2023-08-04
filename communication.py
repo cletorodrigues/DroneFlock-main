@@ -101,7 +101,6 @@ if __name__ == '__main__':
     pos = np.zeros((8, 3))
 
     my_id = int(robot.getName())
-    input_read = 0
 
     # Main loop:
     while robot.step(timestep) != -1:
@@ -147,7 +146,7 @@ if __name__ == '__main__':
         emitter.send(message_to_send.encode('utf-8'))
 
         
-        while receiver.getQueueLength() > 0 or input_read == 0:
+        while receiver.getQueueLength() > 0:
             received_message = receiver.getString()
             sender_name, message_content = received_message.split(":")
 
@@ -161,9 +160,6 @@ if __name__ == '__main__':
 
             pos[sender_id] = message_content
             receiver.nextPacket() # move to the next message in the queue
-
-            if sender_id == 7:
-                input_read = 1
                 
         
             #print("SENDER: ", sender_name, "MESSAGE = " , message)
