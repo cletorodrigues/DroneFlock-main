@@ -100,7 +100,7 @@ if __name__ == '__main__':
     
     pos = np.zeros((8, 3))
 
-    my_id = robot.getName()
+    my_id = int(robot.getName())
     input_read = 0
 
     # Main loop:
