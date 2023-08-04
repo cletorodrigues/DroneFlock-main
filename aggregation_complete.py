@@ -258,11 +258,12 @@ def FiniteBodySize(pos, threshold_distance, drone_radius):
 def main():
     plt.ion() # turns on interactive mode
 
-    n_drones = 31
-    pos = 100 * np.random.rand(n_drones, 3)
+    n_drones = 8
+    pos = 10 * np.random.rand(n_drones, 3) - 5
     threshold_distance = 7
     equi_dist = 3
     
+    print(pos)
     #lin_attraction_bounded_repulsion(pos, threshold_distance, equi_dist)
 
     #Lin_BoundBelowAttandUnboundRep(pos, threshold_distance)
@@ -270,7 +271,7 @@ def main():
     #AlConstAttUnboundRep(pos, threshold_distance)
 
     drone_radius = 1.5
-    FiniteBodySize(pos, threshold_distance, drone_radius)
+    #FiniteBodySize(pos, threshold_distance, drone_radius)
 
     plt.show(block=True)
 

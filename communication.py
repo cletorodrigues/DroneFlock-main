@@ -24,7 +24,14 @@ from controller import Camera
 from controller import DistanceSensor
 
 from math import cos, sin
+
 import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import time
+import math
+from statistics import mean
+from scipy.spatial.distance import pdist, squareform
 
 
 import sys
@@ -76,7 +83,7 @@ if __name__ == '__main__':
 
     #get device name
     robot_name = robot.getName()
-    print(robot_name)	
+    #print(robot_name)	
 
     # Get emitter
     emitter = robot.getDevice("emitter")
@@ -102,6 +109,8 @@ if __name__ == '__main__':
 
     my_id = int(robot.getName())
 
+    threshold_distance = 1.1
+
     # Main loop:
     while robot.step(timestep) != -1:
         input_read = 0 
@@ -110,7 +119,7 @@ if __name__ == '__main__':
         actual_state = {}
     
         
-        print(dt)
+        #print(dt)
 
         ## Get sensor data
         roll = imu.getRollPitchYaw()[0]
@@ -119,9 +128,9 @@ if __name__ == '__main__':
         yaw_rate = gyro.getValues()[2]
         altitude = gps.getValues()[2]
         x_global = gps.getValues()[0]
-        v_x_global = (x_global != past_x_global)*(x_global - past_x_global)/dt
+        v_x_global = (x_global - past_x_global)/dt
         y_global = gps.getValues()[1]
-        v_y_global = (y_global != past_y_global)*(y_global - past_y_global)/dt
+        v_y_global = (y_global - past_y_global)/dt
 
         ## Get body fixed velocities
         cosyaw = cos(yaw)
@@ -136,8 +145,6 @@ if __name__ == '__main__':
         yaw_desired = 0
         height_diff_desired = 0
 
-
-        height_desired += height_diff_desired * dt
 
         pos[my_id] = x_global, y_global, altitude
 
@@ -162,10 +169,54 @@ if __name__ == '__main__':
             receiver.nextPacket() # move to the next message in the queue
                 
         
-            #print("SENDER: ", sender_name, "MESSAGE = " , message)
-        
-        print(pos, "\n")
+        #print(pos, "\n")
         #print("TIMESTAMP = ", robot.getTime())
+        
+
+        #initualize control variables
+        n_drones = len(pos)
+        dist_matrix = squareform(pdist(pos))
+        u = np.zeros([n_drones, 3])
+        
+        #calculate average position
+        avg_pos = np.mean(pos, axis=0) # centroid position
+        
+        #initialize attraction/repulsion function's parameters
+        a, b, c = 1, 2, 2.885
+
+        #calculate distances between agents
+        dist_matrix = squareform(pdist(pos))
+
+        # calculate avg distances to centroid and the distance of each individual to the centroid
+        avg_dist_to_centroid = np.mean(np.linalg.norm(pos - avg_pos, axis=1))
+        dist_to_centroid = np.linalg.norm(pos - avg_pos, axis=1)
+        #print(avg_dist_to_centroid)
+
+        if np.any(dist_to_centroid >= threshold_distance):
+            i = my_id
+            u[i] = 0
+            for j in range(n_drones):
+                if i != j:
+                    y_d = pos[i] - pos[j]
+                    y_norm = dist_matrix[i, j]
+                    u[i] -= y_d * (a - b * np.exp(-(y_norm**2) / c))
+
+                    forward_desired = u[my_id][0]
+                    sideways_desired = u[my_id][1]
+                    height_diff_desired = u[my_id][2]
+                         
+                        
+        else:
+            print("DRONE ", my_id, "CONFIRMS AGGREGATION IS COMPLETE")
+
+            forward_desired = 0
+            sideways_desired = 0
+            height_diff_desired = 0
+
+
+        height_desired += height_diff_desired * dt
+
+        #print("DRONE", my_id ,"-- VELOCITY DESIRED = ", forward_desired, "  " ,sideways_desired, " " ,height_desired, "\n AVERAGE DISTANCE TO CENTROID = ", avg_dist_to_centroid)
 
 
         ## Example how to get sensor data
@@ -178,6 +229,9 @@ if __name__ == '__main__':
                                 yaw_desired, height_desired,
                                 roll, pitch, yaw_rate,
                                 altitude, v_x, v_y)
+
+
+        print("DRONE", my_id ,"-- dt = ", dt, "\n foward_desired = ", forward_desired, "\n sideways_desired =  ", sideways_desired, "\n heigh_desired = ", height_desired, "\n ROLL = ", roll, "PITCH = ", pitch, "YAW_DESIRED = ", yaw_desired)                        
 
         m1_motor.setVelocity(-motor_power[0])
         m2_motor.setVelocity(motor_power[1])
