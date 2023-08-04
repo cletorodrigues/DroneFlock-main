@@ -100,12 +100,16 @@ if __name__ == '__main__':
     
     pos = np.zeros((8, 3))
 
+    my_id = robot.getName()
+    input_read = 0
 
     # Main loop:
     while robot.step(timestep) != -1:
+        input_read = 0 
 
         dt = robot.getTime() - past_time
         actual_state = {}
+    
         
         print(dt)
 
@@ -136,12 +140,14 @@ if __name__ == '__main__':
 
         height_desired += height_diff_desired * dt
 
+        pos[my_id] = x_global, y_global, altitude
+
         message = x_global, y_global, altitude
-        message_to_send = f"{robot.getName()}:{message}"
+        message_to_send = f"{my_id}:{message}"
         emitter.send(message_to_send.encode('utf-8'))
-		    
+
         
-        while receiver.getQueueLength() > 0:
+        while receiver.getQueueLength() > 0 or input_read == 0:
             received_message = receiver.getString()
             sender_name, message_content = received_message.split(":")
 
@@ -155,9 +161,15 @@ if __name__ == '__main__':
 
             pos[sender_id] = message_content
             receiver.nextPacket() # move to the next message in the queue
+
+            if sender_id == 8:
+                input_read = 1
+                
+        
             #print("SENDER: ", sender_name, "MESSAGE = " , message)
         
-        print(pos)
+        print(pos, "\n")
+        print("TIMESTAMP = ", robot.getTime())
 
 
         ## Example how to get sensor data
