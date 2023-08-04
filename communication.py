@@ -103,7 +103,7 @@ if __name__ == '__main__':
     PID_update_last_time = robot.getTime()
     sensor_read_last_time = robot.getTime()
 
-    height_desired = FLYING_ATTITUDE
+    height_desired = gps.getValues()[2]
     
     pos = np.zeros((8, 3))
 
@@ -128,9 +128,18 @@ if __name__ == '__main__':
         yaw_rate = gyro.getValues()[2]
         altitude = gps.getValues()[2]
         x_global = gps.getValues()[0]
-        v_x_global = (x_global - past_x_global)/dt
+        v_x_global = ((x_global != past_x_global)*(x_global - past_x_global)/dt) +  (x_global == past_x_global)*0.001
         y_global = gps.getValues()[1]
-        v_y_global = (y_global - past_y_global)/dt
+        v_y_global = ((y_global != past_y_global)*(y_global - past_y_global)/dt) +  (y_global == past_y_global)*0.001
+
+        if (x_global == past_x_global):
+            v_x_global = 0
+
+        if (y_global == past_y_global):
+            v_y_global = 0
+
+
+        print("DRONE", my_id , "\n dt = ", dt, "vx = ", v_x_global, "vy = ", v_y_global, "\n")
 
         ## Get body fixed velocities
         cosyaw = cos(yaw)
@@ -229,9 +238,7 @@ if __name__ == '__main__':
                                 yaw_desired, height_desired,
                                 roll, pitch, yaw_rate,
                                 altitude, v_x, v_y)
-
-
-        print("DRONE", my_id ,"-- dt = ", dt, "\n foward_desired = ", forward_desired, "\n sideways_desired =  ", sideways_desired, "\n heigh_desired = ", height_desired, "\n ROLL = ", roll, "PITCH = ", pitch, "YAW_DESIRED = ", yaw_desired)                        
+                        
 
         m1_motor.setVelocity(-motor_power[0])
         m2_motor.setVelocity(motor_power[1])
