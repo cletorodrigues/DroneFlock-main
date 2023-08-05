@@ -120,11 +120,9 @@ if __name__ == '__main__':
     threshold_distance = 1.1
 
     TIMEOUT = 50  # This can be adjusted based on your needs.
-    
+
     # Main loop:
     while robot.step(timestep) != -1:
-        input_read = 0 
-
         dt = robot.getTime() - past_time
         actual_state = {}
     

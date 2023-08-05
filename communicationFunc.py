@@ -24,7 +24,14 @@ from controller import Camera
 from controller import DistanceSensor
 
 from math import cos, sin
+
 import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import time
+import math
+from statistics import mean
+from scipy.spatial.distance import pdist, squareform
 
 
 import sys
@@ -90,12 +97,12 @@ def init():
 
 
 
-def send_message(my_id, message):
+def send_message(emitter, my_id, message):
     message_to_send = f"{my_id}:{message}"
     emitter.send(message_to_send.encode('utf-8'))
 
 
-def get_positions(pos):
+def get_positions(pos, robot, receiver, timestep, my_id):
     TIMEOUT = 50  # This can be adjusted based on your needs.
 
     timeout_counter = 0
@@ -125,8 +132,50 @@ def get_positions(pos):
 
     return pos
 
-if __name__ == '__main__':
+def aggregate(pos, avg_pos, my_id, coeff_vec, drone_radius, u):
+    n_drones = len(pos)
+    dist_matrix = squareform(pdist(pos))
+
+    a, b = coeff_vec[0], coeff_vec[1]
+
+    #calculate distances between agents
+    dist_matrix = squareform(pdist(pos))
+
+    # calculate avg distances to centroid and the distance of each individual to the centroid
+    avg_dist_to_centroid = np.mean(np.linalg.norm(pos - avg_pos, axis=1))
+
+    dist_to_centroid = np.linalg.norm(pos - avg_pos, axis=1)
+    #print(avg_dist_to_centroid)
+
+    if np.any(dist_to_centroid >= threshold_distance):
+            i = my_id
+            u[i] = 0
+            for j in range(n_drones):
+                if i != j:
+                    y_d = pos[i] - pos[j]
+                    y_norm = dist_matrix[i, j]
+                    u[i] -= y_d * (a/y_norm - b/(((y_norm**2) - 4*drone_radius**2)**2))
+                    
+            
+            vx_p = u[my_id][0]
+            vy_p = u[my_id][1]
+            vz_p = u[my_id][2]
+
+                         
+                        
+    else:
+        print("DRONE ", my_id, "CONFIRMS AGGREGATION IS COMPLETE")
+
+        vx_p = 0
+        vy_p = 0
+        vz_p = 0
+
     
+    return vx_p, vy_p, vz_p, u
+
+
+
+if __name__ == '__main__':
     robot, timestep, m1_motor, m2_motor, m3_motor, m4_motor, imu, gps, gyro, camera, range_front, range_left, range_back, range_right, keyboard, emitter, receiver = init()
 
     ## Initialize variables
@@ -140,15 +189,38 @@ if __name__ == '__main__':
     PID_update_last_time = robot.getTime()
     sensor_read_last_time = robot.getTime()
 
-    height_desired = FLYING_ATTITUDE
+    height_desired = gps.getValues()[2]
+
+    while np.isnan(past_x_global) or np.isnan(past_y_global) or np.isnan(height_desired):
+        robot.step(timestep)
+        past_x_global = gps.getValues()[0]
+        past_y_global = gps.getValues()[1]
+        height_desired = gps.getValues()[2]
+
+    #drone radius 
+    drone_radius = 0.05
     
     pos = np.zeros((8, 3))
 
+    #initualize control variables
+    n_drones = len(pos)
+    u = np.zeros([n_drones, 3])
+
     my_id = int(robot.getName())
 
+    print("INIT POS DRONE " , my_id, " = ", past_x_global, past_y_global, height_desired)
+
+
     #define the goal distance
-    threshold_distance = 3
+    threshold_distance = 2
     equi_dist = 2
+
+    #initialize attraction/repulsion function's parameters
+    a, b, c = 0.1, 0.025, 2.885
+
+    coeff_vec = [a, b, c]
+
+    avg_pos = 0
 
     # Main loop:
     while robot.step(timestep) != -1:
@@ -163,9 +235,12 @@ if __name__ == '__main__':
         yaw_rate = gyro.getValues()[2]
         altitude = gps.getValues()[2]
         x_global = gps.getValues()[0]
-        v_x_global = (x_global != past_x_global)*(x_global - past_x_global)/dt
+        v_x_global = (x_global - past_x_global)/dt
         y_global = gps.getValues()[1]
-        v_y_global = (y_global != past_y_global)*(y_global - past_y_global)/dt
+        v_y_global = (y_global - past_y_global)/dt
+
+
+        print("DRONE ", my_id, "\n x_global = ", x_global, " past_x_global = ", past_x_global)
 
         ## Get body fixed velocities
         cosyaw = cos(yaw)
@@ -179,18 +254,30 @@ if __name__ == '__main__':
         sideways_desired = 0
         yaw_desired = 0
         height_diff_desired = 0
-
-
-        height_desired += height_diff_desired * dt
+        height_desired = gps.getValues()[2]
 
         pos[my_id] = x_global, y_global, altitude
         message = x_global, y_global, altitude
-        send_message(my_id, message)
+        send_message(emitter, my_id, message)
 
-        pos = get_positions(pos)
-        print("DRONE ", my_id, "\n POS = ", pos, "\n TIMESTAMP = ", robot.getTime())
+        pos = get_positions(pos, robot, receiver, timestep, my_id)
+        #print("DRONE ", my_id, "\n POS = ", pos, "\n TIMESTAMP = ", robot.getTime())
+
+
+        #calculate average position
+        avg_pos += np.mean(pos, axis=0)*np.all(avg_pos == 0) # centroid position
+        print("\n CENTROID = ", avg_pos, "\n DRONE POSITION = ", pos[my_id])
+
+        #calculate control forces
+        forward_desired, sideways_desired, height_diff_desired, u = aggregate(pos, avg_pos, my_id, coeff_vec, drone_radius, u)
+
+        print("VEL WANTED = ",forward_desired, sideways_desired, height_diff_desired, "\n")
         
+        height_desired += height_diff_desired * dt
 
+        print("DT = ", dt, "height_desired = ", height_desired, "yaw_desired = ", yaw_desired, 
+              "\n roll = ", roll, "pitch = ", pitch, "yaw_rate = ", yaw_rate, 
+              "\n altitude = ", altitude, "vx = ", v_x_global, "vy = ", v_y_global, "\n \n")
 
         ## Example how to get sensor data
         ## range_front_value = range_front.getValue();
