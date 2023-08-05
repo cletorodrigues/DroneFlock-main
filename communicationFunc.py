@@ -157,6 +157,8 @@ def aggregate(pos, avg_pos, my_id, coeff_vec, drone_radius, u):
                     u[i] -= y_d * (a/y_norm - b/(((y_norm**2) - 4*drone_radius**2)**2))
                     
             
+            u[i] = np.clip(u[i], -0.5, 0.5)
+
             vx_p = u[my_id][0]
             vy_p = u[my_id][1]
             vz_p = u[my_id][2]
@@ -240,7 +242,10 @@ if __name__ == '__main__':
         v_y_global = (y_global - past_y_global)/dt
 
 
-        print("DRONE ", my_id, "\n x_global = ", x_global, " past_x_global = ", past_x_global)
+        print("DRONE ", my_id, "\n x_global = ", x_global, " past_x_global = ", past_x_global, "YAW = ", yaw)
+
+        past_x_global = x_global
+        past_y_global = y_global
 
         ## Get body fixed velocities
         cosyaw = cos(yaw)
@@ -266,7 +271,7 @@ if __name__ == '__main__':
 
         #calculate average position
         avg_pos += np.mean(pos, axis=0)*np.all(avg_pos == 0) # centroid position
-        print("\n CENTROID = ", avg_pos, "\n DRONE POSITION = ", pos[my_id])
+        print("DRONE ", my_id, "\n CENTROID = ", avg_pos, "\n DRONE POSITION = ", pos[my_id])
 
         #calculate control forces
         forward_desired, sideways_desired, height_diff_desired, u = aggregate(pos, avg_pos, my_id, coeff_vec, drone_radius, u)
@@ -277,7 +282,7 @@ if __name__ == '__main__':
 
         print("DT = ", dt, "height_desired = ", height_desired, "yaw_desired = ", yaw_desired, 
               "\n roll = ", roll, "pitch = ", pitch, "yaw_rate = ", yaw_rate, 
-              "\n altitude = ", altitude, "vx = ", v_x_global, "vy = ", v_y_global, "\n \n")
+              "\n altitude = ", altitude, "vx = ", v_x_global, "vy = ", v_y_global)
 
         ## Example how to get sensor data
         ## range_front_value = range_front.getValue();
@@ -289,6 +294,9 @@ if __name__ == '__main__':
                                 yaw_desired, height_desired,
                                 roll, pitch, yaw_rate,
                                 altitude, v_x, v_y)
+        
+
+        print("\n MOTOR POWER = ", motor_power, "\n \n")
 
         m1_motor.setVelocity(-motor_power[0])
         m2_motor.setVelocity(motor_power[1])
@@ -296,5 +304,3 @@ if __name__ == '__main__':
         m4_motor.setVelocity(motor_power[3])
 
         past_time = robot.getTime()
-        past_x_global = x_global
-        past_y_global = y_global

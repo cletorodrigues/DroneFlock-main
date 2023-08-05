@@ -24,6 +24,7 @@ from controller import Camera
 from controller import DistanceSensor
 
 from math import cos, sin
+import numpy as np
 
 import sys
 sys.path.append('../../../controllers/python_based')
@@ -71,11 +72,16 @@ if __name__ == '__main__':
     ## Get keyboard
     keyboard = Keyboard()
     keyboard.enable(timestep)
-
-    ## Initialize variables
-
+    
     past_x_global = gps.getValues()[0]
     past_y_global = gps.getValues()[1]
+
+    while np.isnan(past_x_global) or np.isnan(past_y_global):
+        robot.step(timestep)
+        past_x_global = gps.getValues()[0]
+        past_y_global = gps.getValues()[1]
+
+    
     past_time = robot.getTime()
 
     # Crazyflie velocity PID controller
@@ -108,9 +114,12 @@ if __name__ == '__main__':
         yaw_rate = gyro.getValues()[2]
         altitude = gps.getValues()[2]
         x_global = gps.getValues()[0]
-        v_x_global = (x_global != past_x_global)*(x_global - past_x_global)/dt
+        v_x_global = (x_global - past_x_global)/dt
         y_global = gps.getValues()[1]
-        v_y_global = (x_global != past_x_global)*(y_global - past_y_global)/dt
+        v_y_global = (y_global - past_y_global)/dt
+
+        if (np.abs(v_x_global) or np.abs(v_y_global)) >= 0.2:
+            print(v_x_global, v_y_global)
 
         ## Get body fixed velocities
         cosyaw = cos(yaw)
@@ -145,6 +154,7 @@ if __name__ == '__main__':
                 height_diff_desired = - 0.1
 
             key = keyboard.getKey()
+
 
 
         height_desired += height_diff_desired * dt
