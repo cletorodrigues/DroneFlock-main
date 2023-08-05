@@ -107,10 +107,20 @@ if __name__ == '__main__':
     
     pos = np.zeros((8, 3))
 
+    #initualize control variables
+    n_drones = len(pos)
+    u = np.zeros([n_drones, 3])
+    avg_pos = 0
+
+    #initialize attraction/repulsion function's parameters
+    a, b, c = 1, 2, 2.885
+
     my_id = int(robot.getName())
 
     threshold_distance = 1.1
 
+    TIMEOUT = 50  # This can be adjusted based on your needs.
+    
     # Main loop:
     while robot.step(timestep) != -1:
         input_read = 0 
@@ -132,14 +142,8 @@ if __name__ == '__main__':
         y_global = gps.getValues()[1]
         v_y_global = ((y_global != past_y_global)*(y_global - past_y_global)/dt) +  (y_global == past_y_global)*0.001
 
-        if (x_global == past_x_global):
-            v_x_global = 0
 
-        if (y_global == past_y_global):
-            v_y_global = 0
-
-
-        print("DRONE", my_id , "\n dt = ", dt, "vx = ", v_x_global, "vy = ", v_y_global, "\n")
+        #print("DRONE", my_id , "\n dt = ", dt, "x_flobal = ", x_global, "past_x_global = ", past_x_global, "vx = ", v_x_global, "\n")
 
         ## Get body fixed velocities
         cosyaw = cos(yaw)
@@ -153,13 +157,23 @@ if __name__ == '__main__':
         sideways_desired = 0
         yaw_desired = 0
         height_diff_desired = 0
-
+        height_desired = gps.getValues()[2]
 
         pos[my_id] = x_global, y_global, altitude
 
         message = x_global, y_global, altitude
         message_to_send = f"{my_id}:{message}"
         emitter.send(message_to_send.encode('utf-8'))
+
+
+        timeout_counter = 0
+        while receiver.getQueueLength() < 7:
+            if timeout_counter > TIMEOUT:
+                print(f"Timeout occurred for Drone {my_id} waiting for messages. Proceeding with {receiver.getQueueLength()} messages.")
+                break
+            
+            robot.step(timestep)
+            timeout_counter += 1
 
         
         while receiver.getQueueLength() > 0:
@@ -176,22 +190,16 @@ if __name__ == '__main__':
 
             pos[sender_id] = message_content
             receiver.nextPacket() # move to the next message in the queue
-                
-        
-        #print(pos, "\n")
-        #print("TIMESTAMP = ", robot.getTime())
-        
 
-        #initualize control variables
-        n_drones = len(pos)
-        dist_matrix = squareform(pdist(pos))
-        u = np.zeros([n_drones, 3])
+        
         
         #calculate average position
-        avg_pos = np.mean(pos, axis=0) # centroid position
+        avg_pos += np.mean(pos, axis=0)*np.all(avg_pos == 0) # centroid position
+        print("CENTROID = ", avg_pos)
+            
         
-        #initialize attraction/repulsion function's parameters
-        a, b, c = 1, 2, 2.885
+
+        dist_matrix = squareform(pdist(pos))
 
         #calculate distances between agents
         dist_matrix = squareform(pdist(pos))
@@ -209,10 +217,11 @@ if __name__ == '__main__':
                     y_d = pos[i] - pos[j]
                     y_norm = dist_matrix[i, j]
                     u[i] -= y_d * (a - b * np.exp(-(y_norm**2) / c))
-
-                    forward_desired = u[my_id][0]
-                    sideways_desired = u[my_id][1]
-                    height_diff_desired = u[my_id][2]
+                    
+            
+            forward_desired = u[my_id][0]
+            sideways_desired = u[my_id][1]
+            height_diff_desired = u[my_id][2]
                          
                         
         else:
@@ -225,7 +234,7 @@ if __name__ == '__main__':
 
         height_desired += height_diff_desired * dt
 
-        #print("DRONE", my_id ,"-- VELOCITY DESIRED = ", forward_desired, "  " ,sideways_desired, " " ,height_desired, "\n AVERAGE DISTANCE TO CENTROID = ", avg_dist_to_centroid)
+        print("DRONE", my_id ,"-- vz = ", height_desired," vx ≃ ", forward_desired, "vy = ", sideways_desired, "\n \n POS = ",pos[my_id] ,"\n dt= ", dt, "\n")
 
 
         ## Example how to get sensor data

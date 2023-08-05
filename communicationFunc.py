@@ -35,28 +35,7 @@ FLYING_ATTITUDE = 1
 
 
 
-def send_message(my_id, message):
-    message_to_send = f"{my_id}:{message}"
-    emitter.send(message_to_send.encode('utf-8'))
-
-def receive_message():
-    received_message = receiver.getString()
-    sender_name, message_content = received_message.split(":")
-
-    sender_id = int(sender_name)
-            
-    # Removing parenthesis and splitting the string into list
-    message_content = message_content.strip('()').split(',')
-
-    # Converting each element in the list to float
-    message_content = [float(i) for i in message_content]
-
-    return sender_id, message_content
-
-
-
-if __name__ == '__main__':
-
+def init():
     robot = Robot()
     timestep = int(robot.getBasicTimeStep())
 
@@ -107,6 +86,49 @@ if __name__ == '__main__':
     receiver = robot.getDevice("receiver")
     receiver.enable(timestep)
 
+    return robot, timestep, m1_motor, m2_motor, m3_motor, m4_motor, imu, gps, gyro, camera, range_front, range_left, range_back, range_right, keyboard, emitter, receiver
+
+
+
+def send_message(my_id, message):
+    message_to_send = f"{my_id}:{message}"
+    emitter.send(message_to_send.encode('utf-8'))
+
+
+def get_positions(pos):
+    TIMEOUT = 50  # This can be adjusted based on your needs.
+
+    timeout_counter = 0
+    while receiver.getQueueLength() < 7:
+        if timeout_counter > TIMEOUT:
+            print(f"Timeout occurred for Drone {my_id} waiting for messages. Proceeding with {receiver.getQueueLength()} messages.")
+            break
+            
+        robot.step(timestep)
+        timeout_counter += 1
+    
+
+    while receiver.getQueueLength() > 0:
+        received_message = receiver.getString()
+        sender_name, message_content = received_message.split(":")
+
+        sender_id = int(sender_name)
+            
+        # Removing parenthesis and splitting the string into list
+        message_content = message_content.strip('()').split(',')
+
+        # Converting each element in the list to float
+        message_content = [float(i) for i in message_content]
+
+        pos[sender_id] = message_content
+        receiver.nextPacket() # move to the next message in the queue
+
+    return pos
+
+if __name__ == '__main__':
+    
+    robot, timestep, m1_motor, m2_motor, m3_motor, m4_motor, imu, gps, gyro, camera, range_front, range_left, range_back, range_right, keyboard, emitter, receiver = init()
+
     ## Initialize variables
 
     past_x_global = gps.getValues()[0]
@@ -123,7 +145,6 @@ if __name__ == '__main__':
     pos = np.zeros((8, 3))
 
     my_id = int(robot.getName())
-    input_read = 0
 
     #define the goal distance
     threshold_distance = 3
@@ -131,13 +152,9 @@ if __name__ == '__main__':
 
     # Main loop:
     while robot.step(timestep) != -1:
-        input_read = 0 
 
         dt = robot.getTime() - past_time
         actual_state = {}
-    
-        
-        print(dt)
 
         ## Get sensor data
         roll = imu.getRollPitchYaw()[0]
@@ -170,17 +187,8 @@ if __name__ == '__main__':
         message = x_global, y_global, altitude
         send_message(my_id, message)
 
-        
-        while receiver.getQueueLength() > 0 or input_read == 0:
-            sender_id, message_content = receive_message()
-            
-            pos[sender_id] = message_content
-            receiver.nextPacket() # move to the next message in the queue
-
-            if sender_id == 7:
-                input_read = 1
-                
-
+        pos = get_positions(pos)
+        print("DRONE ", my_id, "\n POS = ", pos, "\n TIMESTAMP = ", robot.getTime())
         
 
 
