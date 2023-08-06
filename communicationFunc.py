@@ -84,7 +84,7 @@ def init():
 
     #get device name
     robot_name = robot.getName()
-    print(robot_name)	
+    #print(robot_name)	
 
     # Get emitter
     emitter = robot.getDevice("emitter")
@@ -156,15 +156,11 @@ def aggregate(pos, avg_pos, my_id, coeff_vec, drone_radius, u):
                     y_norm = dist_matrix[i, j]
                     u[i] -= y_d * (a/y_norm - b/(((y_norm**2) - 4*drone_radius**2)**2))
                     
-            
-            u[i] = np.clip(u[i], -0.5, 0.5)
 
             vx_p = u[my_id][0]
             vy_p = u[my_id][1]
             vz_p = u[my_id][2]
 
-                         
-                        
     else:
         print("DRONE ", my_id, "CONFIRMS AGGREGATION IS COMPLETE")
 
@@ -184,20 +180,26 @@ if __name__ == '__main__':
 
     past_x_global = gps.getValues()[0]
     past_y_global = gps.getValues()[1]
+    altitude_rate = 0
+    past_altitude = gps.getValues()[2]
     past_time = robot.getTime()
+    
 
     # Crazyflie velocity PID controller
     PID_CF = pid_velocity_fixed_height_controller()
     PID_update_last_time = robot.getTime()
     sensor_read_last_time = robot.getTime()
+    
 
-    height_desired = gps.getValues()[2]
-
-    while np.isnan(past_x_global) or np.isnan(past_y_global) or np.isnan(height_desired):
+    while np.isnan(past_x_global) or np.isnan(past_y_global) or np.isnan(past_altitude):
         robot.step(timestep)
         past_x_global = gps.getValues()[0]
         past_y_global = gps.getValues()[1]
-        height_desired = gps.getValues()[2]
+        past_altitude = gps.getValues()[2]
+
+    
+    height_desired = FLYING_ATTITUDE
+
 
     #drone radius 
     drone_radius = 0.05
@@ -210,7 +212,7 @@ if __name__ == '__main__':
 
     my_id = int(robot.getName())
 
-    print("INIT POS DRONE " , my_id, " = ", past_x_global, past_y_global, height_desired)
+    #print("INIT POS DRONE " , my_id, " = ", past_x_global, past_y_global, height_desired)
 
 
     #define the goal distance
@@ -218,11 +220,12 @@ if __name__ == '__main__':
     equi_dist = 2
 
     #initialize attraction/repulsion function's parameters
-    a, b, c = 0.1, 0.025, 2.885
+    a, b, c = 1, 0.25, 2.885
 
     coeff_vec = [a, b, c]
 
-    avg_pos = 0
+    avg_pos = np.zeros(3)
+
 
     # Main loop:
     while robot.step(timestep) != -1:
@@ -240,13 +243,10 @@ if __name__ == '__main__':
         v_x_global = (x_global - past_x_global)/dt
         y_global = gps.getValues()[1]
         v_y_global = (y_global - past_y_global)/dt
+        altitude_rate = (altitude - past_altitude)/dt
 
-
-        print("DRONE ", my_id, "\n x_global = ", x_global, " past_x_global = ", past_x_global, "YAW = ", yaw)
-
-        past_x_global = x_global
-        past_y_global = y_global
-
+        #print("x_global = ", x_global, " past_x_global = ", past_x_global, "VX = ", v_x_global)
+        
         ## Get body fixed velocities
         cosyaw = cos(yaw)
         sinyaw = sin(yaw)
@@ -259,35 +259,50 @@ if __name__ == '__main__':
         sideways_desired = 0
         yaw_desired = 0
         height_diff_desired = 0
-        height_desired = gps.getValues()[2]
 
-        pos[my_id] = x_global, y_global, altitude
-        message = x_global, y_global, altitude
-        send_message(emitter, my_id, message)
+        # pos[my_id] = x_global, y_global, altitude
+        # message = x_global, y_global, altitude
+        # send_message(emitter, my_id, message)
 
-        pos = get_positions(pos, robot, receiver, timestep, my_id)
-        #print("DRONE ", my_id, "\n POS = ", pos, "\n TIMESTAMP = ", robot.getTime())
+        # pos = get_positions(pos, robot, receiver, timestep, my_id)
+        # #print("DRONE ", my_id, "\n POS = ", pos, "\n TIMESTAMP = ", robot.getTime())
 
 
-        #calculate average position
-        avg_pos += np.mean(pos, axis=0)*np.all(avg_pos == 0) # centroid position
-        print("DRONE ", my_id, "\n CENTROID = ", avg_pos, "\n DRONE POSITION = ", pos[my_id])
+        # #calculate average position
+        # avg_pos += np.mean(pos, axis=0)*np.all(avg_pos == 0) # centroid position
+        # #print("DRONE ", my_id, "\n CENTROID = ", avg_pos, "\n DRONE POSITION = ", pos[my_id])
 
-        #calculate control forces
-        forward_desired, sideways_desired, height_diff_desired, u = aggregate(pos, avg_pos, my_id, coeff_vec, drone_radius, u)
 
-        print("VEL WANTED = ",forward_desired, sideways_desired, height_diff_desired, "\n")
+        # #calculate control forces
+        # forward_desired, sideways_desired, height_diff_desired, u = aggregate(pos, avg_pos, my_id, coeff_vec, drone_radius, u)
+
+        # #print("VEL WANTED = ",forward_desired, sideways_desired, height_diff_desired, "\n")
+
+        
+        # height_desired += height_diff_desired * dt
+        
+        # if altitude_rate*height_diff_desired < 0:
+        #     print("DRONE ", my_id, "\n CENTROID Z POS = ", avg_pos[2], "drone_altitude = ", altitude, "VZ = ", altitude_rate, "VZ_DESIRED = ", height_diff_desired, "heigh_desired = ", height_desired, "\n")
+            
+        #     print("DT = ", dt, "height_desired = ", height_desired, "yaw_desired = ", yaw_desired, 
+        #       "\n roll = ", roll, "pitch = ", pitch, "yaw_rate = ", yaw_rate, 
+        #       "\n altitude = ", altitude, "vx = ", v_x_global, "vy = ", v_y_global)
+
+        # Example how to get sensor data
+        # range_front_value = range_front.getValue();
+        # cameraData = camera.getImage()
+
         
         height_desired += height_diff_desired * dt
 
-        print("DT = ", dt, "height_desired = ", height_desired, "yaw_desired = ", yaw_desired, 
-              "\n roll = ", roll, "pitch = ", pitch, "yaw_rate = ", yaw_rate, 
-              "\n altitude = ", altitude, "vx = ", v_x_global, "vy = ", v_y_global)
-
-        ## Example how to get sensor data
-        ## range_front_value = range_front.getValue();
-        ## cameraData = camera.getImage()
-
+        # if altitude_rate < 0 and np.abs(altitude - FLYING_ATTITUDE) <= 0.1:
+        #     height_desired = FLYING_ATTITUDE - altitude_rate
+        # elif altitude_rate >= 0 and np.abs(altitude - FLYING_ATTITUDE) >= 0.1:
+        #     height_desired = altitude - (altitude - FLYING_ATTITUDE)/100
+        # elif altitude_rate < -0.3 and np.abs(altitude - FLYING_ATTITUDE) >= 0.1:
+        #     height_desired = altitude - altitude_rate/dt
+        # else:
+        #     height_desired = FLYING_ATTITUDE
 
         ## PID velocity controller with fixed height
         motor_power = PID_CF.pid(dt, forward_desired, sideways_desired,
@@ -295,8 +310,18 @@ if __name__ == '__main__':
                                 roll, pitch, yaw_rate,
                                 altitude, v_x, v_y)
         
+        
+        # if altitude < 2 and altitude_rate < -1:
+        #     motor_power = np.zeros(4)
 
-        print("\n MOTOR POWER = ", motor_power, "\n \n")
+        if np.abs(altitude - height_desired) < 0.05 and np.abs(altitude_rate) <= 0.1:
+            height_desired = 2
+            if my_id == 5:
+                print("DRONE ", my_id, "\n drone_altitude = ", altitude, "VZ = ", altitude_rate, "VZ_DESIRED = ", height_diff_desired, "heigh_desired = ", height_desired, "\n")
+                print("\n MOTOR_POWER = ", motor_power)
+
+        
+
 
         m1_motor.setVelocity(-motor_power[0])
         m2_motor.setVelocity(motor_power[1])
@@ -304,3 +329,6 @@ if __name__ == '__main__':
         m4_motor.setVelocity(motor_power[3])
 
         past_time = robot.getTime()
+        past_x_global = x_global
+        past_y_global = y_global
+        past_altitude = altitude

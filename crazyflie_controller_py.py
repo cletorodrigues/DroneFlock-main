@@ -75,11 +75,13 @@ if __name__ == '__main__':
     
     past_x_global = gps.getValues()[0]
     past_y_global = gps.getValues()[1]
+    past_altitude = gps.getValues()[2]
 
     while np.isnan(past_x_global) or np.isnan(past_y_global):
         robot.step(timestep)
         past_x_global = gps.getValues()[0]
         past_y_global = gps.getValues()[1]
+        past_altitude = gps.getValues()[2]
 
     
     past_time = robot.getTime()
@@ -101,6 +103,9 @@ if __name__ == '__main__':
     print("- Use Q and E to rotate around yaw ");
     print("- Use W and S to go up and down\n ")
 
+    counter = 0
+    N_print = 10
+
     # Main loop:
     while robot.step(timestep) != -1:
 
@@ -117,9 +122,9 @@ if __name__ == '__main__':
         v_x_global = (x_global - past_x_global)/dt
         y_global = gps.getValues()[1]
         v_y_global = (y_global - past_y_global)/dt
+        altitude_rate = (altitude - past_altitude)/dt
 
-        if (np.abs(v_x_global) or np.abs(v_y_global)) >= 0.2:
-            print(v_x_global, v_y_global)
+        counter += 1
 
         ## Get body fixed velocities
         cosyaw = cos(yaw)
@@ -159,6 +164,9 @@ if __name__ == '__main__':
 
         height_desired += height_diff_desired * dt
 
+        if counter % N_print == 0 and np.any([np.abs(v_x_global) >= 0.3, np.abs(v_y_global) >= 0.3, np.abs(altitude_rate) >= 0.3]):
+            print("VX = ", v_x_global, "VY = ", v_y_global, "VZ = ", altitude_rate, "\n")
+
         ## Example how to get sensor data
         ## range_front_value = range_front.getValue();
         ## cameraData = camera.getImage()
@@ -178,3 +186,4 @@ if __name__ == '__main__':
         past_time = robot.getTime()
         past_x_global = x_global
         past_y_global = y_global
+        past_altitude = altitude
