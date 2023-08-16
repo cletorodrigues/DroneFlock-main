@@ -39,16 +39,16 @@ if __name__ == '__main__':
     ## Initialize motors
     m1_motor = robot.getDevice("m1_motor");
     m1_motor.setPosition(float('inf'))
-    m1_motor.setVelocity(-1)
+    m1_motor.setVelocity(-55)
     m2_motor = robot.getDevice("m2_motor");
     m2_motor.setPosition(float('inf'))
-    m2_motor.setVelocity(1)
+    m2_motor.setVelocity(55)
     m3_motor = robot.getDevice("m3_motor");
     m3_motor.setPosition(float('inf'))
-    m3_motor.setVelocity(-1)
+    m3_motor.setVelocity(-55)
     m4_motor = robot.getDevice("m4_motor");
     m4_motor.setPosition(float('inf'))
-    m4_motor.setVelocity(1)
+    m4_motor.setVelocity(55)
 
     ## Initialize Sensors
     imu = robot.getDevice("inertial_unit")
@@ -73,6 +73,17 @@ if __name__ == '__main__':
     past_x_global = gps.getValues()[0]
     past_y_global = gps.getValues()[1]
     past_altitude = gps.getValues()[2]
+
+    while np.isnan(past_x_global) or np.isnan(past_y_global):
+        robot.step(timestep)
+        past_x_global = gps.getValues()[0]
+        past_y_global = gps.getValues()[1]
+        past_altitude = gps.getValues()[2]
+
+        m1_motor.setVelocity(-55)
+        m2_motor.setVelocity(55)
+        m3_motor.setVelocity(-55)
+        m4_motor.setVelocity(55)
 
     
     past_time = robot.getTime()
@@ -155,8 +166,6 @@ if __name__ == '__main__':
 
         height_desired += height_diff_desired * dt
 
-        if counter % N_print == 0 and np.any([np.abs(v_x_global) >= 0.3, np.abs(v_y_global) >= 0.3, np.abs(altitude_rate) >= 0.3]):
-            print("VX = ", v_x_global, "VY = ", v_y_global, "VZ = ", altitude_rate, "\n")
 
         ## Example how to get sensor data
         ## range_front_value = range_front.getValue();
@@ -177,3 +186,4 @@ if __name__ == '__main__':
         past_time = robot.getTime()
         past_x_global = x_global
         past_y_global = y_global
+        past_altitude = altitude
