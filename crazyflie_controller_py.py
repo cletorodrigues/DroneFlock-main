@@ -20,7 +20,6 @@ from controller import InertialUnit
 from controller import GPS
 from controller import Gyro
 from controller import Keyboard
-from controller import Camera
 from controller import DistanceSensor
 
 from math import cos, sin
@@ -58,8 +57,6 @@ if __name__ == '__main__':
     gps.enable(timestep)
     gyro = robot.getDevice("gyro")
     gyro.enable(timestep)
-    camera = robot.getDevice("camera")
-    camera.enable(timestep)
     range_front = robot.getDevice("range_front")
     range_front.enable(timestep)
     range_left = robot.getDevice("range_left")

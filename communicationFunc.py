@@ -20,7 +20,6 @@ from controller import InertialUnit
 from controller import GPS
 from controller import Gyro
 from controller import Keyboard
-from controller import Camera
 from controller import DistanceSensor
 
 from math import cos, sin
@@ -67,8 +66,6 @@ def init():
     gps.enable(timestep)
     gyro = robot.getDevice("gyro")
     gyro.enable(timestep)
-    camera = robot.getDevice("camera")
-    camera.enable(timestep)
     range_front = robot.getDevice("range_front")
     range_front.enable(timestep)
     range_left = robot.getDevice("range_left")
@@ -172,14 +169,6 @@ def aggregate(pos, avg_pos, my_id, coeff_vec, drone_radius, u):
     
     return vx_p, vy_p, vz_p, u
 
-def moving_average(data, window_size):
-    """Compute the moving average of a list. If window_size > len(data), returns the average of the whole list."""
-    if window_size > len(data):
-        return [sum(data) / len(data)]
-    else:
-        return [sum(data[i:i+window_size]) / window_size for i in range(len(data) - window_size + 1)]
-
-
 
 
 if __name__ == '__main__':
@@ -278,7 +267,7 @@ if __name__ == '__main__':
         send_message(emitter, my_id, message)
 
         pos = get_positions(pos, robot, receiver, timestep, my_id)
-        #print("DRONE ", my_id, "\n POS = ", pos, "\n TIMESTAMP = ", robot.getTime())
+        print("DRONE ", my_id, "\n POS = ", pos, "\n TIMESTAMP = ", robot.getTime())
 
 
         #calculate average position
@@ -287,8 +276,8 @@ if __name__ == '__main__':
 
 
         #calculate control forces
-        if OPERATIONAL == 1:
-            forward_desired, sideways_desired, height_diff_desired, u = aggregate(pos, avg_pos, my_id, coeff_vec, drone_radius, u)
+        # if OPERATIONAL == 1:
+        #     forward_desired, sideways_desired, height_diff_desired, u = aggregate(pos, avg_pos, my_id, coeff_vec, drone_radius, u)
 
         
         height_desired += height_diff_desired * dt
@@ -296,20 +285,6 @@ if __name__ == '__main__':
         # Example how to get sensor data
         # range_front_value = range_front.getValue();
         # cameraData = camera.getImage()
-
-
-        Delta_H_LIST.append(np.abs(altitude - height_desired))
-        Vz_LIST.append(np.abs(altitude_rate))
-
-        Delta_H_ma = moving_average(Delta_H_LIST, 50)
-        Vz_ma = moving_average(Vz_LIST, 50)
-
-        print("DRONE ", my_id, "\n DELTA H = ", Delta_H_ma, "|Vz| = ", Vz_ma)
-        
-        #check if the drones are ready for the aggregation algorithm
-        if Delta_H_ma < 0.05 and Vz_ma <= 0.1:
-            OPERATIONAL = 1
-            print("DRONE ", my_id, "is OPERATIONAL \n")
 
 
         ## PID velocity controller with fixed height
