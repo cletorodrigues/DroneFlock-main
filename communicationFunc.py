@@ -40,7 +40,6 @@ from pid_controller import pid_velocity_fixed_height_controller
 FLYING_ATTITUDE = 1
 
 
-
 def init():
     robot = Robot()
     timestep = int(robot.getBasicTimeStep())
@@ -90,7 +89,7 @@ def init():
     receiver = robot.getDevice("receiver")
     receiver.enable(timestep)
 
-    return robot, timestep, m1_motor, m2_motor, m3_motor, m4_motor, imu, gps, gyro, camera, range_front, range_left, range_back, range_right, keyboard, emitter, receiver
+    return robot, timestep, m1_motor, m2_motor, m3_motor, m4_motor, imu, gps, gyro, range_front, range_left, range_back, range_right, keyboard, emitter, receiver
 
 
 
@@ -103,6 +102,7 @@ def send_message(emitter, my_id, message, is_operat):
 def get_positions(pos, robot, receiver, timestep, my_id):
     TIMEOUT = 50  # This can be adjusted based on your needs.
 
+    all_op = np.zeros(8)
     timeout_counter = 0
     while receiver.getQueueLength() < 7:
         if timeout_counter > TIMEOUT:
@@ -118,7 +118,13 @@ def get_positions(pos, robot, receiver, timestep, my_id):
         sender_name, message_content, is_operat = received_message.split(":")
 
         sender_id = int(sender_name)
-            
+
+        if my_id == 0:
+            print(sender_id, robot.getTime())
+
+        #store the operational flag
+        all_op[sender_id] = int(is_operat)
+
         # Removing parenthesis and splitting the string into list
         message_content = message_content.strip('()').split(',')
 
@@ -128,7 +134,7 @@ def get_positions(pos, robot, receiver, timestep, my_id):
         pos[sender_id] = message_content
         receiver.nextPacket() # move to the next message in the queue
 
-    return pos, is_operat
+    return pos, all_op
 
 def aggregate(pos, avg_pos, my_id, coeff_vec, drone_radius, u):
     n_drones = len(pos)
@@ -169,10 +175,17 @@ def aggregate(pos, avg_pos, my_id, coeff_vec, drone_radius, u):
     
     return vx_p, vy_p, vz_p, u
 
+def moving_average(data, window_size):
+    """Compute the moving average of a list. If window_size > len(data), returns the average of the whole list."""
+    if window_size > len(data):
+        return sum(data) / len(data)
+    else:
+        return sum(data[-window_size:]) / window_size
 
+    
 
 if __name__ == '__main__':
-    robot, timestep, m1_motor, m2_motor, m3_motor, m4_motor, imu, gps, gyro, camera, range_front, range_left, range_back, range_right, keyboard, emitter, receiver = init()
+    robot, timestep, m1_motor, m2_motor, m3_motor, m4_motor, imu, gps, gyro, range_front, range_left, range_back, range_right, keyboard, emitter, receiver = init()
 
     ## Initialize variables
 
@@ -228,12 +241,19 @@ if __name__ == '__main__':
     Delta_H_LIST = []
     Vz_LIST = []
 
+    MAX_LIST_SIZE = 100  
+    DELTA_H_THRESHOLD = 0.01
+    Vz_THRESHOLD = 0.05
+
+    all_operat = np.zeros(8)
 
     # Main loop:
     while robot.step(timestep) != -1:
 
         dt = robot.getTime() - past_time
         actual_state = {}
+
+        all_operat[my_id] = OPERATIONAL
 
         ## Get sensor data
         roll = imu.getRollPitchYaw()[0]
@@ -264,28 +284,47 @@ if __name__ == '__main__':
 
         pos[my_id] = x_global, y_global, altitude
         message = x_global, y_global, altitude
-        send_message(emitter, my_id, message)
+        send_message(emitter, my_id, message, OPERATIONAL)
 
-        pos = get_positions(pos, robot, receiver, timestep, my_id)
-        print("DRONE ", my_id, "\n POS = ", pos, "\n TIMESTAMP = ", robot.getTime())
-
-
-        #calculate average position
-        avg_pos += np.mean(pos, axis=0)*np.all(avg_pos == 0) # centroid position
-        #print("DRONE ", my_id, "\n CENTROID = ", avg_pos, "\n DRONE POSITION = ", pos[my_id])
+        pos, all_operat = get_positions(pos, robot, receiver, timestep, my_id)
+        #print("DRONE ", my_id, "\n ALL OPERATIONAL ≃ ", all_operat)
 
 
-        #calculate control forces
-        # if OPERATIONAL == 1:
+        # #calculate average position
+        # avg_pos += np.mean(pos, axis=0)*np.all(avg_pos == 0) # centroid position
+        # #print("DRONE ", my_id, "\n CENTROID = ", avg_pos, "\n DRONE POSITION = ", pos[my_id])
+
+
+        # #calculate control forces
+        # if np.all(all_operat) == 1:
+        #     print("ALL DRONES ARE OPEATIONAL, STARTING AGGREGATION")
         #     forward_desired, sideways_desired, height_diff_desired, u = aggregate(pos, avg_pos, my_id, coeff_vec, drone_radius, u)
 
         
         height_desired += height_diff_desired * dt
 
+        # # Limit the size of lists
+        # if len(Delta_H_LIST) > MAX_LIST_SIZE:
+        #     Delta_H_LIST.pop(0)
+        
+        # if len(Vz_LIST) > MAX_LIST_SIZE:
+        #     Vz_LIST.pop(0)
+
+
+        # Delta_H_LIST.append(np.abs(altitude - height_desired))
+        # Vz_LIST.append(np.abs(altitude_rate))
+
+        # Delta_H_ma = moving_average(Delta_H_LIST, 50)
+        # Vz_ma = moving_average(Vz_LIST, 50)
+
+    
+        # if Delta_H_ma <= DELTA_H_THRESHOLD and Vz_ma <= Vz_THRESHOLD:
+        #     OPERATIONAL = 1
+        #     print("DRONE ", my_id, "is OPERATIONAL \n")
+
         # Example how to get sensor data
         # range_front_value = range_front.getValue();
         # cameraData = camera.getImage()
-
 
         ## PID velocity controller with fixed height
         motor_power = PID_CF.pid(dt, forward_desired, sideways_desired,
@@ -293,6 +332,8 @@ if __name__ == '__main__':
                                 roll, pitch, yaw_rate,
                                 altitude, v_x, v_y)
         
+        # if my_id == 2:
+        #     print("dt = ", dt, "roll = ", roll, "pitch = ", pitch, "yaw_rate =", yaw_rate, "altitude = ", altitude,"\n motor_power = ", motor_power)
         
         m1_motor.setVelocity(-motor_power[0])
         m2_motor.setVelocity(motor_power[1])
