@@ -74,12 +74,6 @@ if __name__ == '__main__':
     past_y_global = gps.getValues()[1]
     past_altitude = gps.getValues()[2]
 
-    while np.isnan(past_x_global) or np.isnan(past_y_global):
-        robot.step(timestep)
-        past_x_global = gps.getValues()[0]
-        past_y_global = gps.getValues()[1]
-        past_altitude = gps.getValues()[2]
-
     
     past_time = robot.getTime()
 
@@ -183,4 +177,3 @@ if __name__ == '__main__':
         past_time = robot.getTime()
         past_x_global = x_global
         past_y_global = y_global
-        past_altitude = altitude
