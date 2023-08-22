@@ -151,6 +151,10 @@ def aggregate(pos, avg_pos, my_id, coeff_vec, drone_radius, u):
 
     if np.any(dist_to_centroid >= threshold_distance):
             i = my_id
+
+            if my_id == 0:
+                print(avg_dist_to_centroid, "\n")
+            
             u[i] = 0
             for j in range(n_drones):
                 if i != j:
@@ -225,11 +229,11 @@ if __name__ == '__main__':
 
 
     #define the goal distance
-    threshold_distance = 1
+    threshold_distance = 0.5
     equi_dist = 1.3
 
     #initialize attraction/repulsion function's parameters
-    a, b, c = 0.8, 0.1, 2.885
+    a, b, c = 0.16, 0.01, 2.885
 
     coeff_vec = [a, b, c]
 
@@ -301,9 +305,9 @@ if __name__ == '__main__':
             forward_desired, sideways_desired, height_diff_desired, u = aggregate(pos, avg_pos, my_id, coeff_vec, drone_radius, u)
 
 
-        height_desired += 0.1*height_diff_desired * dt
+        height_desired += height_diff_desired * dt
 
-        print("MY ID = ", my_id, "VX = ", forward_desired, "VY = ", sideways_desired, "VZ = ", height_diff_desired, "\n \n")    
+        #print("MY ID = ", my_id, "VX = ", forward_desired, "VY = ", sideways_desired, "VZ = ", height_diff_desired, "\n \n")    
 
         # Limit the size of lists
         if len(Delta_H_LIST) > MAX_LIST_SIZE:
@@ -328,7 +332,7 @@ if __name__ == '__main__':
         # cameraData = camera.getImage()
 
         ## PID velocity controller with fixed height
-        motor_power = PID_CF.pid(dt, forward_desired/10, sideways_desired/10,
+        motor_power = PID_CF.pid(dt, forward_desired, sideways_desired,
                                 yaw_desired, height_desired,
                                 roll, pitch, yaw_rate,
                                 altitude, v_x, v_y)
