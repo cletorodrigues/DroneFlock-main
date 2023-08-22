@@ -109,7 +109,7 @@ def get_positions(pos, robot, receiver, timestep, my_id):
             print(f"Timeout occurred for Drone {my_id} waiting for messages. Proceeding with {receiver.getQueueLength()} messages.")
             break
             
-        robot.step(timestep)
+        #robot.step(timestep)
         timeout_counter += 1
     
 
@@ -119,11 +119,9 @@ def get_positions(pos, robot, receiver, timestep, my_id):
 
         sender_id = int(sender_name)
 
-        if my_id == 0:
-            print(sender_id, robot.getTime())
-
         #store the operational flag
         all_op[sender_id] = int(is_operat)
+        
 
         # Removing parenthesis and splitting the string into list
         message_content = message_content.strip('()').split(',')
@@ -227,11 +225,11 @@ if __name__ == '__main__':
 
 
     #define the goal distance
-    threshold_distance = 2
-    equi_dist = 2
+    threshold_distance = 1
+    equi_dist = 1.3
 
     #initialize attraction/repulsion function's parameters
-    a, b, c = 1, 0.25, 2.885
+    a, b, c = 0.8, 0.1, 2.885
 
     coeff_vec = [a, b, c]
 
@@ -252,8 +250,6 @@ if __name__ == '__main__':
 
         dt = robot.getTime() - past_time
         actual_state = {}
-
-        all_operat[my_id] = OPERATIONAL
 
         ## Get sensor data
         roll = imu.getRollPitchYaw()[0]
@@ -287,7 +283,8 @@ if __name__ == '__main__':
         send_message(emitter, my_id, message, OPERATIONAL)
 
         pos, all_operat = get_positions(pos, robot, receiver, timestep, my_id)
-        #print("DRONE ", my_id, "\n ALL OPERATIONAL ≃ ", all_operat)
+        all_operat[my_id] = OPERATIONAL
+        # #print("DRONE ", my_id, "\n ALL OPERATIONAL ≃ ", all_operat)
 
 
         # #calculate average position
@@ -295,39 +292,43 @@ if __name__ == '__main__':
         # #print("DRONE ", my_id, "\n CENTROID = ", avg_pos, "\n DRONE POSITION = ", pos[my_id])
 
 
-        # #calculate control forces
-        # if np.all(all_operat) == 1:
-        #     print("ALL DRONES ARE OPEATIONAL, STARTING AGGREGATION")
-        #     forward_desired, sideways_desired, height_diff_desired, u = aggregate(pos, avg_pos, my_id, coeff_vec, drone_radius, u)
 
+        #calculate control forces
+        if np.all(all_operat) == 1:
+            # if forward_desired == 0:
+            #     print("ALL DRONES ARE OPERATIONAL, STARTING AGGREGATION")
+
+            forward_desired, sideways_desired, height_diff_desired, u = aggregate(pos, avg_pos, my_id, coeff_vec, drone_radius, u)
+
+
+        height_desired += 0.1*height_diff_desired * dt
+
+        print("MY ID = ", my_id, "VX = ", forward_desired, "VY = ", sideways_desired, "VZ = ", height_diff_desired, "\n \n")    
+
+        # Limit the size of lists
+        if len(Delta_H_LIST) > MAX_LIST_SIZE:
+            Delta_H_LIST.pop(0)
         
-        height_desired += height_diff_desired * dt
-
-        # # Limit the size of lists
-        # if len(Delta_H_LIST) > MAX_LIST_SIZE:
-        #     Delta_H_LIST.pop(0)
-        
-        # if len(Vz_LIST) > MAX_LIST_SIZE:
-        #     Vz_LIST.pop(0)
+        if len(Vz_LIST) > MAX_LIST_SIZE:
+            Vz_LIST.pop(0)
 
 
-        # Delta_H_LIST.append(np.abs(altitude - height_desired))
-        # Vz_LIST.append(np.abs(altitude_rate))
+        Delta_H_LIST.append(np.abs(altitude - height_desired))
+        Vz_LIST.append(np.abs(altitude_rate))
 
-        # Delta_H_ma = moving_average(Delta_H_LIST, 50)
-        # Vz_ma = moving_average(Vz_LIST, 50)
+        Delta_H_ma = moving_average(Delta_H_LIST, 50)
+        Vz_ma = moving_average(Vz_LIST, 50)
 
     
-        # if Delta_H_ma <= DELTA_H_THRESHOLD and Vz_ma <= Vz_THRESHOLD:
-        #     OPERATIONAL = 1
-        #     print("DRONE ", my_id, "is OPERATIONAL \n")
+        if Delta_H_ma <= DELTA_H_THRESHOLD and Vz_ma <= Vz_THRESHOLD:
+            OPERATIONAL = 1
 
         # Example how to get sensor data
         # range_front_value = range_front.getValue();
         # cameraData = camera.getImage()
 
         ## PID velocity controller with fixed height
-        motor_power = PID_CF.pid(dt, forward_desired, sideways_desired,
+        motor_power = PID_CF.pid(dt, forward_desired/10, sideways_desired/10,
                                 yaw_desired, height_desired,
                                 roll, pitch, yaw_rate,
                                 altitude, v_x, v_y)
