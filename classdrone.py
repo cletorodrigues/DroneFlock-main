@@ -244,7 +244,7 @@ class CrazyflieDrone:
     
     def aggregate(self, coeff_vec, threshold_distance):
         pos = self.pos
-        dist_matrix = squareform(pdist(pos))
+        #dist_matrix = squareform(pdist(pos))
         n_drones = len(pos)
         my_id = self.my_id
 
@@ -257,19 +257,11 @@ class CrazyflieDrone:
         #calculate distances between agents
         dist_matrix = squareform(pdist(pos))
 
-        # # We mask the upper triangle (including the diagonal) of the matrix
-        # # since it's symmetrical and we don't want to consider diagonal elements.
-        # aux_matrix = dist_matrix
-        # mask = np.triu(np.ones_like(aux_matrix, dtype=bool))
+        # Find and print the largest distance
+        largest_distance = np.max(dist_matrix)
 
-        # # Set the masked values to a very small value so they won't be the maximum.
-        # aux_matrix[mask] = float('-inf')
-
-        # # Find and print the largest distance
-        # largest_distance = np.max(aux_matrix)
-
-        # if my_id == 0:
-        #     print(largest_distance)
+        if my_id == 0:
+            print(largest_distance)
 
         # calculate avg distances to centroid and the distance of each individual to the centroid
         avg_dist_to_centroid = np.mean(np.linalg.norm(pos - avg_pos, axis=1))
@@ -318,7 +310,7 @@ class CrazyflieDrone:
         coeff_vec = [a, b, c]
 
         #define convergence distance
-        threshold_distance = 1
+        threshold_distance = 0.7
 
         #create lists for the stabilizing process    
         self.Delta_H_LIST = []
