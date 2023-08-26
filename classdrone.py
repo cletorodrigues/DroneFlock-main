@@ -244,9 +244,8 @@ class CrazyflieDrone:
     
     def aggregate(self, coeff_vec, threshold_distance):
         pos = self.pos
-
-        n_drones = len(pos)
         dist_matrix = squareform(pdist(pos))
+        n_drones = len(pos)
         my_id = self.my_id
 
         a, b = coeff_vec[0], coeff_vec[1]
@@ -258,6 +257,20 @@ class CrazyflieDrone:
         #calculate distances between agents
         dist_matrix = squareform(pdist(pos))
 
+        # # We mask the upper triangle (including the diagonal) of the matrix
+        # # since it's symmetrical and we don't want to consider diagonal elements.
+        # aux_matrix = dist_matrix
+        # mask = np.triu(np.ones_like(aux_matrix, dtype=bool))
+
+        # # Set the masked values to a very small value so they won't be the maximum.
+        # aux_matrix[mask] = float('-inf')
+
+        # # Find and print the largest distance
+        # largest_distance = np.max(aux_matrix)
+
+        # if my_id == 0:
+        #     print(largest_distance)
+
         # calculate avg distances to centroid and the distance of each individual to the centroid
         avg_dist_to_centroid = np.mean(np.linalg.norm(pos - avg_pos, axis=1))
 
@@ -267,17 +280,17 @@ class CrazyflieDrone:
         if np.any(dist_to_centroid >= threshold_distance):
                 i = my_id
                 
-                u[i] = 0
+                u = 0
                 for j in range(n_drones):
                     if i != j:
                         y_d = pos[i] - pos[j]
                         y_norm = dist_matrix[i, j]
-                        u[i] -= y_d * (a/y_norm - b/(((y_norm**2) - 4*DRONE_RADIUS**2)**2))
+                        u -= y_d * (a/y_norm - b/(((y_norm**2) - 4*DRONE_RADIUS**2)**2))
                         
 
-                vx_p = u[my_id][0]
-                vy_p = u[my_id][1]
-                vz_p = u[my_id][2]
+                vx_p = u[0]
+                vy_p = u[1]
+                vz_p = u[2]
 
         else:
             print("DRONE ", my_id, "CONFIRMS AGGREGATION IS COMPLETE")
@@ -301,7 +314,7 @@ class CrazyflieDrone:
         self.get_init_sensor_values()
         
         #initialize attraction/repulsion function's parameters
-        a, b, c = 0.16, 0.01, 2.885
+        a, b, c = 0.0143, 0.001, 2.885
         coeff_vec = [a, b, c]
 
         #define convergence distance

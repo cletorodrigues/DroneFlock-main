@@ -143,6 +143,19 @@ def aggregate(pos, avg_pos, my_id, coeff_vec, drone_radius, u):
     #calculate distances between agents
     dist_matrix = squareform(pdist(pos))
 
+    # We mask the upper triangle (including the diagonal) of the matrix
+    # since it's symmetrical and we don't want to consider diagonal elements.
+    mask = np.triu(np.ones_like(dist_matrix, dtype=bool))
+
+    # Set the masked values to a very small value so they won't be the maximum.
+    dist_matrix[mask] = float('-inf')
+
+    # Find and print the largest distance
+    largest_distance = np.max(dist_matrix)
+
+    if self.my_id == 0:
+        print(largest_distance)
+
     # calculate avg distances to centroid and the distance of each individual to the centroid
     avg_dist_to_centroid = np.mean(np.linalg.norm(pos - avg_pos, axis=1))
 
@@ -166,6 +179,7 @@ def aggregate(pos, avg_pos, my_id, coeff_vec, drone_radius, u):
             vx_p = u[my_id][0]
             vy_p = u[my_id][1]
             vz_p = u[my_id][2]
+
 
     else:
         print("DRONE ", my_id, "CONFIRMS AGGREGATION IS COMPLETE")
@@ -229,11 +243,11 @@ if __name__ == '__main__':
 
 
     #define the goal distance
-    threshold_distance = 0.5
+    threshold_distance = 0.9
     equi_dist = 1.3
 
     #initialize attraction/repulsion function's parameters
-    a, b, c = 0.16, 0.01, 2.885
+    a, b, c = 0.0143, 0.001, 2.885
 
     coeff_vec = [a, b, c]
 
