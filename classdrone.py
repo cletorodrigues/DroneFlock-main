@@ -41,6 +41,7 @@ from pid_controller import pid_velocity_fixed_height_controller
 DRONE_RADIUS = "0.05"
 FLYING_ATTITUDE = "1"
 
+
 class CrazyflieDrone:
     def __init__(self):
         self.robot = Robot()
@@ -143,8 +144,8 @@ class CrazyflieDrone:
                 self.pos[sender_id] = message_content
                 receiver.nextPacket() # move to the next message in the queue  
 
-        send_message(self)
-        receive_message(self)
+        send_message()
+        receive_message()
 
 
     def get_init_sensor_values(self):
@@ -187,10 +188,10 @@ class CrazyflieDrone:
         self.yaw_rate = self.gyro.getValues()[2]
         self.altitude = self.gps.getValues()[2]
         self.x_global = self.gps.getValues()[0]
-        v_x_global = (self.x_global - self.past_x_global)/dt
+        v_x_global = (self.x_global - self.past_x_global)/self.dt
         self.y_global = self.gps.getValues()[1]
-        v_y_global = (self.y_global - self.past_y_global)/dt
-        self.altitude_rate = (self.altitude - self.past_altitude)/dt
+        v_y_global = (self.y_global - self.past_y_global)/self.dt
+        self.altitude_rate = (self.altitude - self.past_altitude)/self.dt
 
         
         ## Get body fixed velocities
@@ -216,8 +217,8 @@ class CrazyflieDrone:
         self.Delta_H_LIST.append(np.abs(self.altitude - self.height_desired))
         self.Vz_LIST.append(np.abs(self.altitude_rate))
 
-        Delta_H_ma = drone.moving_average(self.Delta_H_LIST, 50)
-        Vz_ma = drone.moving_average(self.Vz_LIST, 50)
+        Delta_H_ma = self.moving_average(self.Delta_H_LIST, 50)
+        Vz_ma = self.moving_average(self.Vz_LIST, 50)
 
         if Delta_H_ma <= DELTA_H_THRESHOLD and Vz_ma <= Vz_THRESHOLD and self.OPERATIONAL == 0:
             self.OPERATIONAL = 1
@@ -240,6 +241,7 @@ class CrazyflieDrone:
         self.m3_motor.setVelocity(-motor_power[2])
         self.m4_motor.setVelocity(motor_power[3])    
 
+    
     def aggregate(self, coeff_vec, threshold_distance):
         pos = self.pos
 
@@ -296,7 +298,7 @@ class CrazyflieDrone:
             return sum(data[-window_size:]) / window_size
     
     def control_loop(self):
-        drone.get_init_sensor_values(self)
+        self.get_init_sensor_values()
         
         #initialize attraction/repulsion function's parameters
         a, b, c = 0.16, 0.01, 2.885
@@ -313,7 +315,7 @@ class CrazyflieDrone:
             # Main loop logic...
             
             #get sensor data
-            drone.get_sensor_values(self)
+            self.get_sensor_values()
             
             ## Initialize values
             self.forward_desired = 0
@@ -326,27 +328,30 @@ class CrazyflieDrone:
             
             #check if the drone is already operational
             if self.OPERATIONAL == 0:
-                drone.stabilize(self) 
+                self.stabilize() 
             
             #send_position and operational flag to the other drones and receive their positions and operational flags 
-            drone.communicate(self)
+            self.communicate()
 
             #store the operational flag on the operational array    
             self.all_op[self.my_id] = self.OPERATIONAL
-
+            
+            #aggregation process when all drones are operational
             if np.all(self.all_op) == 1:    
-                self.forward_desired, self.sideways_desired, height_diff_desired = drone.aggregate(self, coeff_vec, threshold_distance)
+                self.forward_desired, self.sideways_desired, height_diff_desired = self.aggregate(coeff_vec, threshold_distance)
 
             #calculate the desired altitute    
             self.height_desired += height_diff_desired * self.dt
 
             #send desired velocities and desired altitude (vx, vy, xz)    
-            drone.send_output(self)
+            self.send_output()
+
 
             self.past_time = self.robot.getTime()
             self.past_x_global = self.x_global
             self.past_y_global = self.y_global
             self.past_altitude = self.altitude
+
 
 if __name__ == '__main__':
     drone = CrazyflieDrone()
