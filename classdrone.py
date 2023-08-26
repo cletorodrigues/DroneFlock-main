@@ -38,8 +38,8 @@ sys.path.append('../../../controllers/python_based')
 from pid_controller import pid_velocity_fixed_height_controller
 
 
-DRONE_RADIUS = "0.05"
-FLYING_ATTITUDE = "1"
+DRONE_RADIUS = 0.05
+FLYING_ATTITUDE = 1
 
 
 class CrazyflieDrone:
@@ -103,49 +103,49 @@ class CrazyflieDrone:
         self.sensor_read_last_time = self.robot.getTime()
 
 
-    def communicate(self):
-        def send_message(self):
-            my_id = self.my_id
-            emitter = self.emitter
 
-            message = self.pos[my_id][0], self.pos[my_id][1], self.pos[my_id][2]
-            message_to_send = f"{my_id}:{message}:{self.OPERATIONAL}"
-            emitter.send(message_to_send.encode('utf-8'))
+    def send_message(self):
+        my_id = self.my_id
+        emitter = self.emitter
 
-        def receive_message(self):
-            receiver = self.receiver
-            my_id = self.my_id
+        message = self.pos[my_id][0], self.pos[my_id][1], self.pos[my_id][2]
+        message_to_send = f"{my_id}:{message}:{self.OPERATIONAL}"
+        emitter.send(message_to_send.encode('utf-8'))
+
+    
+    def receive_message(self):
+        receiver = self.receiver
+        my_id = self.my_id
+        
+        TIMEOUT = 50  # This can be adjusted based on your needs.
+
+        timeout_counter = 0
+        while receiver.getQueueLength() < 7:
+            if timeout_counter > TIMEOUT:
+                print(f"Timeout occurred for Drone {my_id} waiting for messages. Proceeding with {receiver.getQueueLength()} messages.")
+                break
             
-            TIMEOUT = 50  # This can be adjusted based on your needs.
+            timeout_counter += 1
 
-            timeout_counter = 0
-            while receiver.getQueueLength() < 7:
-                if timeout_counter > TIMEOUT:
-                    print(f"Timeout occurred for Drone {my_id} waiting for messages. Proceeding with {receiver.getQueueLength()} messages.")
-                    break
-                
-                timeout_counter += 1
+        while receiver.getQueueLength() > 0:
+            received_message = receiver.getString()
+            sender_name, message_content, is_operat = received_message.split(":")
 
-            while receiver.getQueueLength() > 0:
-                received_message = receiver.getString()
-                sender_name, message_content, is_operat = received_message.split(":")
+            sender_id = int(sender_name)
 
-                sender_id = int(sender_name)
+            #store the operational flag
+            self.all_op[sender_id] = int(is_operat)
+            
+            # Removing parenthesis and splitting the string into list
+            message_content = message_content.strip('()').split(',')
 
-                #store the operational flag
-                self.all_op[sender_id] = int(is_operat)
-                
-                # Removing parenthesis and splitting the string into list
-                message_content = message_content.strip('()').split(',')
+            # Converting each element in the list to float
+            message_content = [float(i) for i in message_content]
 
-                # Converting each element in the list to float
-                message_content = [float(i) for i in message_content]
+            self.pos[sender_id] = message_content
+            receiver.nextPacket() # move to the next message in the queue  
 
-                self.pos[sender_id] = message_content
-                receiver.nextPacket() # move to the next message in the queue  
-
-        send_message()
-        receive_message()
+        
 
 
     def get_init_sensor_values(self):
@@ -331,7 +331,8 @@ class CrazyflieDrone:
                 self.stabilize() 
             
             #send_position and operational flag to the other drones and receive their positions and operational flags 
-            self.communicate()
+            self.send_message()
+            self.receive_message()
 
             #store the operational flag on the operational array    
             self.all_op[self.my_id] = self.OPERATIONAL
