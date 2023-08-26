@@ -306,11 +306,11 @@ class CrazyflieDrone:
         self.get_init_sensor_values()
         
         #initialize attraction/repulsion function's parameters
-        a, b, c = 0.0143, 0.001, 2.885
+        a, b, c = 0.03, 0.0027, 2.885
         coeff_vec = [a, b, c]
 
         #define convergence distance
-        threshold_distance = 0.7
+        threshold_distance = 0.6
 
         #create lists for the stabilizing process    
         self.Delta_H_LIST = []
