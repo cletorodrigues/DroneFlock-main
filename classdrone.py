@@ -257,17 +257,18 @@ class CrazyflieDrone:
         #calculate distances between agents
         dist_matrix = squareform(pdist(pos))
 
-        # Find and print the largest distance
-        largest_distance = np.max(dist_matrix)
-
-        if my_id == 0:
-            print(largest_distance)
-
         # calculate avg distances to centroid and the distance of each individual to the centroid
         avg_dist_to_centroid = np.mean(np.linalg.norm(pos - avg_pos, axis=1))
 
         dist_to_centroid = np.linalg.norm(pos - avg_pos, axis=1)
         #print(avg_dist_to_centroid)
+
+        # Find and print the largest distance
+        largest_distance = np.max(dist_to_centroid)       
+
+        if my_id == 0:
+            #print("LARGEST DIST TO CENTROID =", largest_distance, "CENTROID = ", self.avg_pos, "\n")
+            print(largest_distance)
 
         if np.any(dist_to_centroid >= threshold_distance):
                 i = my_id
@@ -310,7 +311,7 @@ class CrazyflieDrone:
         coeff_vec = [a, b, c]
 
         #define convergence distance
-        threshold_distance = 0.6
+        threshold_distance = 0.2
 
         #create lists for the stabilizing process    
         self.Delta_H_LIST = []
@@ -343,7 +344,8 @@ class CrazyflieDrone:
             self.all_op[self.my_id] = self.OPERATIONAL
             
             #aggregation process when all drones are operational
-            if np.all(self.all_op) == 1:    
+            if np.all(self.all_op) == 1:
+                self.avg_pos = np.mean(self.pos, axis = 0)*(self.forward_desired == 0)   
                 self.forward_desired, self.sideways_desired, height_diff_desired = self.aggregate(coeff_vec, threshold_distance)
 
             #calculate the desired altitute    
