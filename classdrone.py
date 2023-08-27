@@ -244,7 +244,7 @@ class CrazyflieDrone:
     
     def aggregate(self, coeff_vec, threshold_distance):
         pos = self.pos
-        dist_matrix = squareform(pdist(pos))
+        #dist_matrix = squareform(pdist(pos))
         n_drones = len(pos)
         my_id = self.my_id
 
@@ -257,25 +257,18 @@ class CrazyflieDrone:
         #calculate distances between agents
         dist_matrix = squareform(pdist(pos))
 
-        # # We mask the upper triangle (including the diagonal) of the matrix
-        # # since it's symmetrical and we don't want to consider diagonal elements.
-        # aux_matrix = dist_matrix
-        # mask = np.triu(np.ones_like(aux_matrix, dtype=bool))
-
-        # # Set the masked values to a very small value so they won't be the maximum.
-        # aux_matrix[mask] = float('-inf')
-
-        # # Find and print the largest distance
-        # largest_distance = np.max(aux_matrix)
-
-        # if my_id == 0:
-        #     print(largest_distance)
-
         # calculate avg distances to centroid and the distance of each individual to the centroid
         avg_dist_to_centroid = np.mean(np.linalg.norm(pos - avg_pos, axis=1))
 
         dist_to_centroid = np.linalg.norm(pos - avg_pos, axis=1)
         #print(avg_dist_to_centroid)
+
+        # Find and print the largest distance
+        largest_distance = np.max(dist_to_centroid)       
+
+        if my_id == 0:
+            #print("LARGEST DIST TO CENTROID =", largest_distance, "CENTROID = ", self.avg_pos, "\n")
+            print(largest_distance)
 
         if np.any(dist_to_centroid >= threshold_distance):
                 i = my_id
@@ -314,11 +307,11 @@ class CrazyflieDrone:
         self.get_init_sensor_values()
         
         #initialize attraction/repulsion function's parameters
-        a, b, c = 0.0143, 0.001, 2.885
+        a, b, c = 0.03, 0.0027, 2.885
         coeff_vec = [a, b, c]
 
         #define convergence distance
-        threshold_distance = 1
+        threshold_distance = 0.2
 
         #create lists for the stabilizing process    
         self.Delta_H_LIST = []
@@ -351,7 +344,8 @@ class CrazyflieDrone:
             self.all_op[self.my_id] = self.OPERATIONAL
             
             #aggregation process when all drones are operational
-            if np.all(self.all_op) == 1:    
+            if np.all(self.all_op) == 1:
+                self.avg_pos = np.mean(self.pos, axis = 0)*(self.forward_desired == 0)   
                 self.forward_desired, self.sideways_desired, height_diff_desired = self.aggregate(coeff_vec, threshold_distance)
 
             #calculate the desired altitute    
